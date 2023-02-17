@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 
 from .util import Log, Timeout
 from .account import Account
-from .scrape_session import ScrapeSession
+from .scrape_session import ScrapeSessionBase
 
 class BofAScraper:
 	creds = dict()
@@ -30,8 +30,8 @@ class BofAScraper:
 	def quit(self):
 		self.driver.quit()
 
-	def open_account(self, account: Account) -> ScrapeSession:
-		return ScrapeSession(self.driver, account)
+	def open_account(self, account: Account) -> ScrapeSessionBase:
+		return ScrapeSessionBase.get_scraper(self.driver, account)
 
 	def get_accounts(self) -> List[Account]:
 		Log.log("Fetching accounts...")
@@ -51,7 +51,8 @@ class BofAScraper:
 	def login(self):
 		Log.log('Logging in...')
 		self.driver.find_element(By.ID, "onlineId1").send_keys(self.creds["id"])
-		self.driver.find_element(By.ID, "passcode1").send_keys(self.creds["passcode"])
+		if self.creds['passcode']:
+			self.driver.find_element(By.ID, "passcode1").send_keys(self.creds["passcode"])
 		self.driver.find_element(By.ID, "signIn").click()
 		Timeout.timeout()
 
