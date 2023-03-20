@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import List, TypedDict
+
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 
@@ -8,6 +10,9 @@ class Transaction:
 	desc: str
 	type: str
 	uuid: str
+
+	def get_date(self) -> datetime:
+		return datetime.strptime(self.date, '%m/%d/%Y')
 
 class Account:
 	__name: str
@@ -31,3 +36,8 @@ class Account:
 
 	def set_transactions(self, transactions: List[Transaction]):
 		self.__transactions = transactions
+
+	def extend_transactions(self, transactions: List[Transaction]):
+		self.__transactions.extend(transactions)
+
+# vim: noexpandtab shiftwidth=4 softtabstop=4 tabstop=4

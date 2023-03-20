@@ -1,8 +1,11 @@
+from datetime import datetime
 from decimal import Decimal
 
+import selenium
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.select import Select
 
 from .account import Account, Transaction
 from .util import Log, Timeout
@@ -35,6 +38,18 @@ class ScrapeSessionBase:
 	def load_more_transactions(self):
 		raise NotImplemented("must implement scraper")
 
+	def get_last_date(self):
+		"""Return the last date covered.
+
+		This helps support workflows like "keep calling load_more_transactions
+		until we hit 2022".
+
+		Account types using a fixed date window (for example, showing one
+		statement at a time) rather than the last N transactions should override
+		this and base the value on the actual window used."""
+		transactions = self.account.get_transactions()
+		return min(t.get_date() for t in transactions)
+
 	@classmethod
 	def get_scraper(cls, driver: webdriver.Firefox, account: Account):
 		if 'Banking' in account.get_name():
@@ -42,7 +57,7 @@ class ScrapeSessionBase:
 		elif 'Visa Signature' in account.get_name():
 			return ScrapeSessionCredit(driver, account)
 		else:
-			raise NotImplemented("unknown account type: " + account.get_name())
+			raise NotImplementedError("unknown account type: " + account.get_name())
 
 class ScrapeSessionBank(ScrapeSessionBase):
 	def __init__(self, driver: webdriver.Firefox, account: Account):
@@ -101,19 +116,41 @@ class ScrapeSessionCredit(ScrapeSessionBase):
 				transaction.type = trans_types[-1]
 			else:
 				transaction.type = None
+			transaction.uuid = ""
 			#transaction.uuid = row.get_attribute("class").split(" ")[1]
 			print(transaction)
 			out.append(transaction)
 		Log.log('Found %d transactions on account %s' % (len(out), self.account.get_name()))
-		self.account.set_transactions(out)
+		self.account.extend_transactions(out)
 		return self
 
 	def load_more_transactions(self):
 		Log.log('Loading more transactions in account %s...' % self.account.get_name())
-		view_more = self.driver.find_element(By.LINK_TEXT, "Previous transactions")
+		try:
+			view_more = self.driver.find_element(By.LINK_TEXT, "Previous transactions")
+		except selenium.common.exceptions.NoSuchElementException:
+			print("Out of transactions")
+			return self
 		self.driver.execute_script("arguments[0].click();", view_more)
 		Timeout.timeout()
 		Log.log('Loaded more transactions in account %s' % self.account.get_name())
 		return self
+
+	def get_last_date(self):
+		select_element = self.driver.find_element(By.ID, 'goto_select_trans_top')
+		select = Select(select_element)
+		date = select.first_selected_option.text
+		if date == "Current transactions":
+			return datetime.now()
+		else:
+			return datetime.strptime(date, '%B %d, %Y')
+
+	# Download QFX:
+	# https://secure.bankofamerica.com/myaccounts/details/card/download-transactions.go?&adx=a7d23276ba86338b55b8052e2d4ffc7e221b8613b45841edad06cc9c31b5fa42&stx=1c9bf82c781cdc8ad4d3e608f00c0e03dd14acb5b1e6c224912e17b94ed7fc51&target=downloadStmtFromDateList&formatType=qfx
+	# First chunk is select_transaction values
+	# Last bit is just "&formatType=qfx" (from select_filetype, but can hardcode)
+	# format_type=csv would be good too
+	# Accessing just downloads it, with a reasonable name
+
 
 # vim: noexpandtab shiftwidth=4 softtabstop=4 tabstop=4

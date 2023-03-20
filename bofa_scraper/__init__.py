@@ -48,6 +48,15 @@ class BofAScraper:
 			Log.log("Found %d accounts" % i)
 		return out
 
+	def check_login(self):
+		"""Check if already logged in and update internal state appropriately"""
+		if self.driver.current_url.startswith('https://secure.bankofamerica.com/myaccounts/'):
+			Log.log('Sign in success!')
+			self.logged_in = True
+		else:
+			Log.log('Sign in failed')
+			self.logged_in = False
+
 	def login(self):
 		Log.log('Logging in...')
 		self.driver.find_element(By.ID, "onlineId1").send_keys(self.creds["id"])
@@ -66,9 +75,6 @@ class BofAScraper:
 			self.driver.find_element(By.ID, "continue-auth-number").click()
 			Timeout.timeout()
 
-		if self.driver.current_url.startswith('https://secure.bankofamerica.com/myaccounts/'):
-			Log.log('Sign in success!')
-			self.logged_in = True
-		else:
-			Log.log('Sign in failed')
-			self.logged_in = False
+		self.check_login()
+
+# vim: noexpandtab shiftwidth=4 softtabstop=4 tabstop=4
