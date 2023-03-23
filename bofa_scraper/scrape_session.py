@@ -145,12 +145,23 @@ class ScrapeSessionCredit(ScrapeSessionBase):
 		else:
 			return datetime.strptime(date, '%B %d, %Y')
 
-	# Download QFX:
-	# https://secure.bankofamerica.com/myaccounts/details/card/download-transactions.go?&adx=a7d23276ba86338b55b8052e2d4ffc7e221b8613b45841edad06cc9c31b5fa42&stx=1c9bf82c781cdc8ad4d3e608f00c0e03dd14acb5b1e6c224912e17b94ed7fc51&target=downloadStmtFromDateList&formatType=qfx
-	# First chunk is select_transaction values
-	# Last bit is just "&formatType=qfx" (from select_filetype, but can hardcode)
-	# format_type=csv would be good too
-	# Accessing just downloads it, with a reasonable name
-
+	def save_files(self, session, outdir, exts=['qfx', 'csv']):
+		select_element = self.driver.find_element(By.ID, 'select_transaction')
+		select = Select(select_element)
+		print(select)
+		print(select.options)
+		for option in select.options:
+			print(option.__dict__)
+			path = option.get_attribute("value")
+			# TODO: ISO8601?
+			date = option.get_attribute("name")
+			print((path, date))
+			for ext in exts:
+				url = f'https://secure.bankofamerica.com{path}&formatType={ext}'
+				resp = session.get(url)
+				# TODO: Trust BoA site less to create filenames
+				filename = f'{outdir}/{self.account.get_name()}.{date}.{ext}'
+				with open(filename, 'wb', ) as fp:
+					fp.write(resp.content)
 
 # vim: noexpandtab shiftwidth=4 softtabstop=4 tabstop=4

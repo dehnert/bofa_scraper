@@ -3,6 +3,7 @@
 import csv
 import sys
 
+from requestium import Session
 import selenium
 
 from bofa_scraper import BofAScraper
@@ -26,7 +27,7 @@ def connect(username):
 
 	return scraper
 
-def handle_account(scraper, account):
+def handle_account(scraper, session, outdir, account):
 	old = False
 	new = True
 	acct_scraper = scraper.open_account(account)
@@ -36,9 +37,18 @@ def handle_account(scraper, account):
 		old = new
 		new = acct_scraper.get_last_date()
 		print(f"Last date now {new}")
+	# We do this *after* the screen by screen scraping because apparently
+	# sometimes (when there are no transactions in the current month?) the
+	# Download link doesn't appear on the first screen.
+	if hasattr(acct_scraper, 'save_files'):
+		acct_scraper.save_files(session, outdir)
 	acct_scraper.close()
 
 def save_transactions(account, outdir):
+	transactions = account.get_transactions()
+	if not transactions:
+		print(f"No transactions for {account.get_name()}")
+		return
 	filename = f"{outdir}/{account.get_name()}.csv"
 	with open(filename, 'w') as fp:
 		writer = csv.writer(fp)
@@ -48,9 +58,11 @@ def save_transactions(account, outdir):
 
 def handle_accounts(scraper, outdir):
 	accounts = scraper.get_accounts()
+	session = Session(driver=scraper.driver)
+	session.transfer_driver_cookies_to_session()
 	for account in accounts:
 		try:
-			handle_account(scraper, account)
+			handle_account(scraper, session, outdir, account)
 		except NotImplementedError as exc:
 			print("Ignoring NotImplementedError: ", exc)
 			continue
