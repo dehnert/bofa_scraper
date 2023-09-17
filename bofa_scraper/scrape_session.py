@@ -146,7 +146,13 @@ class ScrapeSessionCredit(ScrapeSessionBase):
 			return datetime.strptime(date, '%B %d, %Y')
 
 	def save_files(self, session, outdir, exts=['qfx', 'csv']):
-		select_element = self.driver.find_element(By.ID, 'select_transaction')
+		try:
+			select_element = self.driver.find_element(By.ID, 'select_transaction')
+		except selenium.common.exceptions.NoSuchElementException:
+			# The selection_transaction dropdown for downloading files seems
+			# to only exist on pages with transactions.
+			Log.log("no select_transaction dropdown on page")
+			return False
 		select = Select(select_element)
 		print(select)
 		print(select.options)
@@ -163,5 +169,6 @@ class ScrapeSessionCredit(ScrapeSessionBase):
 				filename = f'{outdir}/{self.account.get_name()}.{date}.{ext}'
 				with open(filename, 'wb', ) as fp:
 					fp.write(resp.content)
+		return True
 
 # vim: noexpandtab shiftwidth=4 softtabstop=4 tabstop=4

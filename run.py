@@ -31,18 +31,22 @@ def handle_account(scraper, session, outdir, account):
 	old = False
 	new = True
 	acct_scraper = scraper.open_account(account)
+	saved_files = False
 	while old != new:
 		acct_scraper.scrape_transactions()
 		acct_scraper.load_more_transactions()
 		old = new
 		new = acct_scraper.get_last_date()
 		print(f"Last date now {new}")
-	# We do this *after* the screen by screen scraping because apparently
-	# sometimes (when there are no transactions in the current month?) the
-	# Download link doesn't appear on the first screen.
-	if hasattr(acct_scraper, 'save_files'):
-		acct_scraper.save_files(session, outdir)
+		if hasattr(acct_scraper, 'save_files'):
+			# We try this every screen because apparently sometimes (when there
+			# are no transactions in the current month?) the Download link
+			# doesn't appear on a screen.
+			if not saved_files:
+				saved_files = acct_scraper.save_files(session, outdir)
 	acct_scraper.close()
+	if not saved_files:
+		print("Never succeeded in saving files")
 
 def save_transactions(account, outdir):
 	transactions = account.get_transactions()
